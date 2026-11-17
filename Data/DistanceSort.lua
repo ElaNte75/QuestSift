@@ -14,7 +14,8 @@ local FAR = 1e9
 function Sort.Apply(quests)
     if #quests < 2 then return quests end
     local ctx = NA.MapInfo.Get()
-    local byDistance = NA.db.sortByDistance and ctx.ok and ctx.distOK
+    -- (the "ready to turn in" mode always sorts by distance: Quests/TurnInMode.lua)
+    local byDistance = (NA.db.sortByDistance or (NA.TurnInMode and NA.TurnInMode.IsOn())) and ctx.ok and ctx.distOK
 
     local keyed = {}
     for i, q in ipairs(quests) do

@@ -10,6 +10,8 @@ local defaults = {
     collapsedAll = false,
     collapsedQuests = false,
     sortByDistance = true,   -- nearest quest first
+    turnInMode = false,      -- "?" on the list title: only quests ready to turn in (Quests/TurnInMode.lua)
+    minimapButton = false,   -- own button on the edge of the minimap (UI/MinimapButton.lua); QuestSift is in the game's add-on menu anyway
     arrowEnabled = true,     -- arrow on screen pointing to the focused quest (UI/Arrow.lua)
     arrowArriveYards = 30,   -- the arrow hides when you are this close to the quest's spot (10..150 yd)
     arrowReturnYards = 150,  -- after you reach a quest, the arrow comes back only past this (50..500 yd)
@@ -52,6 +54,11 @@ local defaults = {
     mapAreaOutline = false,  -- only the line around the area, nothing inside
     mapAreaThickness = 2,    -- thickness of that line (1..5)
     mapHideOthers = true,    -- world map: only the focused quest's area, the others hidden
+    bagMarks = true,         -- marks on the quest items in the bags (Items/BagQuestItems.lua)
+    bagMarkSide = "LEFT",    -- corner: LEFT / RIGHT (top), BOTTOMLEFT / BOTTOMRIGHT
+    bagMarkSize = 20,        -- px (12..32)
+    bagUsefulStyle = "Tick", bagUsefulColor = "Green",      -- items a quest needs (Items/BagQuestItems.lua STYLES / COLORS)
+    bagOrphanStyle = "Question", bagOrphanColor = "Orange", -- quest items no quest needs
     mapMinimap = true,       -- minimap: the inside of the quest areas in the same colour (its edge stays the game's)
     dungeonOnlyInside = true, -- inside a dungeon: only its quests, whatever the filters (Data/DungeonFilter.lua)
     focusedFirst = true,    -- a quest you focus yourself is always in the list, on top (Quests/FocusFirst.lua)

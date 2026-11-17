@@ -41,8 +41,9 @@ function Section:HasItemButtons()
     return false
 end
 
--- Lays out all quests. width = the list width. Returns the total height used by the section.
-function Section:Refresh(quests, emptyText, width)
+-- Lays out all quests. width = the list width. counts = small grey line under the header
+-- next to the "Quests" title ("Active: 14   Shown: 5"), nil = none. Returns the total height used by the section.
+function Section:Refresh(quests, emptyText, width, counts)
     width = width or WIDTH
     local blockW = width - BLOCK_X
     self.frame:SetWidth(width)
@@ -54,6 +55,25 @@ function Section:Refresh(quests, emptyText, width)
 
     local y = -HEADER_H
     local used = 0
+    -- the counts sit on the header line, a small gap after "Quests"
+    if counts then
+        if not self.counts then
+            local fs = self.header:CreateFontString(nil, "OVERLAY")
+            fs:SetShadowOffset(1, -1)
+            fs:SetShadowColor(0, 0, 0, 1)
+            fs:SetTextColor(0.65, 0.65, 0.65)
+            fs:SetJustifyH("LEFT")
+            self.counts = fs
+        end
+        local t = self.header.text
+        self.counts:SetFont("Fonts\\FRIZQT__.TTF", math.max(fsz - 2, 8), "")
+        self.counts:ClearAllPoints()
+        self.counts:SetPoint("LEFT", t, "LEFT", (t:GetStringWidth() or 0) + 8, -1)
+        self.counts:SetText(counts)
+        self.counts:Show()
+    elseif self.counts then
+        self.counts:Hide()
+    end
     if self.empty then self.empty:Hide() end
     if not collapsed then
         y = y - BLOCK_GAP

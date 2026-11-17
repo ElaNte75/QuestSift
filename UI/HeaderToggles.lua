@@ -1,4 +1,5 @@
--- UI: quick on/off buttons on the list title, left of the gear: Dungeon filter, Zone filter, Distance filter, Arrow.
+-- UI: quick on/off buttons on the list title, left of the gear: Arrow, Distance, Zone, Dungeon, Most XP and,
+-- last on the left, the yellow "?" = "ready to turn in" mode (Quests/TurnInMode.lua).
 -- Same settings as the options window (the distance in yards comes from there); lit = on, dim = off.
 local ADDON, NA = ...
 
@@ -25,6 +26,7 @@ end
 local DEFS = {
     {
         key = "arrow",
+        keepFolded = true, -- the arrow is not about the list: it doesn't open it
         icon = "Interface\\AddOns\\" .. ADDON .. "\\Textures\\Arrow_Classic",
         tint = { 1, 0.82, 0 },
         isOn = function() return NA.Arrow ~= nil and NA.Arrow.IsOn() end,
@@ -60,6 +62,28 @@ local DEFS = {
         toggle = function() local f = filterById("dungeon"); if f then NA.Filters.Toggle(f) end end,
         tip = function(on)
             return "Hide dungeon quests", on and "On: dungeon quests are hidden while you are outside the dungeon. Click to show them." or "Off: dungeon quests are shown everywhere. Click to hide them outside dungeons."
+        end,
+    },
+    {
+        key = "xp",
+        icon = "Interface\\Icons\\INV_Misc_Book_09",
+        crop = true,
+        isOn = function() local f = filterById("xp"); return f ~= nil and NA.Filters.IsEnabled(f) end,
+        toggle = function() local f = filterById("xp"); if f then NA.Filters.Toggle(f) end end,
+        tip = function(on)
+            return "Most XP quests", (on and "On" or "Off") .. string.format(": only the 5 quests that give the most experience, wherever they are; same XP = nearest first; your own focus doesn't join it. Click to turn it %s. Turns the zone and distance filters off.", on and "off" or "on")
+        end,
+    },
+    {
+        key = "turnin",
+        icon = "Interface\\GossipFrame\\ActiveQuestIcon",
+        isOn = function() return NA.TurnInMode ~= nil and NA.TurnInMode.IsOn() end,
+        toggle = function() if NA.TurnInMode then NA.TurnInMode.Toggle() end end,
+        tip = function(on)
+            if on then
+                return "Ready to turn in", "On: only the quests ready to turn in, closest first (quests of other zones come last). Click to go back to your filters as they were."
+            end
+            return "Ready to turn in", "Off. Click to show only the quests ready to turn in, closest first. Your filters are switched off and come back when you click it again."
         end,
     },
 }
@@ -119,6 +143,12 @@ local function makeButton(header, def, xOffset)
     end)
     b:SetScript("OnClick", function(self)
         NA.SafeCall(def.toggle)
+        -- a filter / the "?" clicked = you want to see the list: it opens, also when it was folded
+        -- (by hand or in a city / on a flight) - user decision 2026-11-17
+        if not def.keepFolded and NA.db.collapsedAll then
+            NA.db.collapsedAll = false
+            if NA.Quiet then NA.Quiet.ListToggledByHand() end
+        end
         afterChange()
         if GameTooltip:IsOwned(self) then showTip(self) end
     end)

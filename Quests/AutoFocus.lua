@@ -79,12 +79,13 @@ end
 -- closest tracked quest of this zone: open quests first (easier first), ready ones only if no open quest is known
 local function nearest(visible, ctx)
     local mixed = NA.db.autoFocusTurnIns == true
+    local turnIn = NA.TurnInMode and NA.TurnInMode.IsOn() -- turn-in mode: the closest turn-in, any distance
     local best, bestD, bestT, bestDone, bestDoneD
     local DF = NA.DungeonFilter
     for _, q in ipairs(visible) do
         local d = distanceOf(q, ctx)
         if d and DF and DF.Hides(q.questID) then d = nil end -- dungeon quest while outside (Data/DungeonFilter.lua)
-        if d and AF.InRangeOnly() and d > rangeYards() then d = nil end -- beyond the distance you set
+        if d and AF.InRangeOnly() and d > rangeYards() and not turnIn then d = nil end -- beyond the distance you set
         if d then
             if q.isComplete then
                 if not bestDoneD or d < bestDoneD then bestDone, bestDoneD = q, d end
@@ -169,7 +170,7 @@ local function update(visible)
 
     if not near then
         -- nothing within the distance: our own focus goes away (yours is never touched here)
-        if AF.InRangeOnly() and cur ~= 0 and cur == lastSet then
+        if AF.InRangeOnly() and cur ~= 0 and cur == lastSet and not (NA.TurnInMode and NA.TurnInMode.IsOn()) then
             setFocus(0)
             lastSeen = 0
         end

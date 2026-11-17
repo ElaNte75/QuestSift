@@ -26,6 +26,13 @@ NA.Options.AddPage("interface", "Interface", function(parent)
         function(key) NA.Theme.Set(key) end)))
     st:Add(W.Note(parent, "Colours and frames of the quest list background, the quest details window and this window."), "note")
 
+    -- minimap button
+    st:Add(W.Section(parent, "Minimap"), "section")
+    st:Add(add(W.Checkbox(parent, "Show the minimap button",
+        "QuestSift is always in the game's add-on menu next to the minimap. Tick this to also have its own button on the edge of the minimap (click: open the options, drag: move it).",
+        function() return NA.db.minimapButton == true end,
+        function(v) NA.db.minimapButton = v; if NA.MinimapButton then NA.MinimapButton.Update() end end)), "row")
+
     -- position
     st:Add(W.Section(parent, "Position"), "section")
     st:Add(add(W.Checkbox(parent, "Lock the list in place",

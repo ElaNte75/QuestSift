@@ -109,6 +109,11 @@ function Info.Build(quest, opts)
     elseif opts.window then
         add("sub", "Not on this map", GREY)
     end
+    -- the experience it gives (small box only: the window lists it under Rewards)
+    if not opts.window and NA.QuestRewards and NA.QuestRewards.XP then
+        local xp = NA.QuestRewards.XP(id)
+        if xp and xp > 0 then add("sub", "Experience: " .. xp, { 0.75, 0.6, 1 }) end
+    end
 
     if quest.isComplete then
         add("gap")

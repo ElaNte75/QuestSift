@@ -137,6 +137,17 @@ function Source.GetTracked()
     return result
 end
 
+-- how many quests you have in the quest log (headers not counted)
+function Source.CountInLog()
+    local QL = C_QuestLog
+    local n = 0
+    for i = 1, QL.GetNumQuestLogEntries() or 0 do
+        local info = QL.GetInfo(i)
+        if info and not info.isHeader and not info.isHidden and info.questID then n = n + 1 end
+    end
+    return n
+end
+
 -- every quest in the quest log (tracked or not) whose header passes match(headerName)
 -- (Data/DungeonFilter.lua: all the quests of the dungeon / battleground you are in)
 function Source.GetInLog(match)

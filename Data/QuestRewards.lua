@@ -88,6 +88,27 @@ function R.Get(questID)
     return r
 end
 
+-- experience a quest gives you now (0 if none / unknown). Only the XP is read (same select-and-
+-- put-back as above); kept per quest until your level changes (the game gives less XP when you level).
+-- A 0 (no XP, or the game hasn't sent the data yet) is asked again at most every 10 s: selecting
+-- can make the game send a quest log update, which refreshes the list - never a loop.
+local xpCache, xpLevel = {}, nil
+function R.XP(questID)
+    if not questID then return 0 end
+    local lv = call(UnitLevel, "player")
+    if lv ~= xpLevel then xpCache, xpLevel = {}, lv end
+    local c = xpCache[questID]
+    local now = GetTime()
+    if c and (c.xp > 0 or now - c.time < 10) then return c.xp end
+    local logIndex = logIndexOf(questID)
+    if not logIndex then return 0 end
+    local restore = selectQuest(questID, logIndex)
+    local v = tonumber((call(GetQuestLogRewardXP, questID))) or 0
+    restore()
+    xpCache[questID] = { xp = v, time = now }
+    return v
+end
+
 function R.Forget(questID)
     if questID then cache[questID] = nil else cache = {} end
 end

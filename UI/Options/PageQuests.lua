@@ -25,17 +25,19 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.sortByDistance end,
         function(v) NA.db.sortByDistance = v; changed() end)), "row")
     st:Add(add(W.Checkbox(parent, "Manual focus on top",
-        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say. A quest the automatic focus picks is always in the list too (in its usual place). Class quests stay above it.",
+        "A quest you focus yourself (on the map, in the quest log or here) is always in the list, on top, whatever the filters say (except \"Most XP\"). A quest the automatic focus picks is always in the list too (in its usual place). Class quests stay above it.",
         function() return NA.db.focusedFirst ~= false end,
         function(v) NA.db.focusedFirst = v; changed() end)), "row")
 
     -- Zone and Distance exclude each other (one or the other, or neither)
     local zone = filterById("zone")
     local dist = filterById("distance")
-    local zoneCheck, distCheck, distRow, focusCheck, rangeCheck, easyCheck
+    local xpf = filterById("xp")
+    local zoneCheck, distCheck, xpCheck, distRow, focusCheck, rangeCheck, easyCheck
     local function refreshScope()
         if zoneCheck then zoneCheck.Refresh() end
         if distCheck then distCheck.Refresh() end
+        if xpCheck then xpCheck.Refresh() end
         local autoOn = NA.db.autoFocusNearest ~= false
         if rangeCheck then W.SetActive(rangeCheck, autoOn) end
         if easyCheck then W.SetActive(easyCheck, autoOn) end
@@ -58,6 +60,11 @@ NA.Options.AddPage("quests", "Quest list", function(parent)
         function() return NA.db.distanceYards or 500 end,
         function(v) NA.db.distanceYards = v; changed() end,
         nil, { majorEvery = 500 })))
+
+    xpCheck = st:Add(add(W.Checkbox(parent, "Only the 5 quests with the most XP",
+        "Shows only the 5 quests that give the most experience, wherever they are (zone and distance don't matter); same XP = nearest first. Quests ready to turn in are left out. A quest you focused yourself doesn't join the list; class quests still stay on top. Turns the zone and distance filters off.",
+        function() return NA.Filters.IsEnabled(xpf) end,
+        function(v) NA.Filters.SetEnabled(xpf, v); refreshScope(); changed() end)), "row")
 
     local dungeon = filterById("dungeon")
     st:Add(add(W.Checkbox(parent, "Hide dungeon quests",

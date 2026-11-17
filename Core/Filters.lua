@@ -22,7 +22,9 @@ function Filters.IsEnabled(f)
 end
 
 -- Filters with the same `group` exclude each other: turning one on turns the others off.
+-- Any filter change ends the "ready to turn in" mode first (its filters come back), then is made.
 function Filters.SetEnabled(f, on)
+    if NA.TurnInMode and NA.TurnInMode.IsOn() then NA.TurnInMode.Exit() end
     state()[f.id] = on and true or false
     if on and f.group then
         for _, other in ipairs(Filters.list) do
@@ -43,6 +45,7 @@ local function normalize()
 end
 
 function Filters.Toggle(f)
+    if NA.TurnInMode and NA.TurnInMode.IsOn() then NA.TurnInMode.Exit() end -- toggles from the restored state
     Filters.SetEnabled(f, not Filters.IsEnabled(f))
 end
 

@@ -78,6 +78,7 @@ function UnitExists() return false end
 function UnitGUID() return "guid" end
 function hooksecurefunc() end
 function hooksecurefunc() end
+function wipe(t) for k in pairs(t) do t[k] = nil end return t end
 
 local log = {{ id = 1, title = "Dwarven Digging", level = 8, complete = false, objs = { {text="0/5 Broken Tools", finished=false, type="item", numFulfilled=0, numRequired=5} } },
              { id = 2, title = "Mazzranache", level = 8, complete = false, objs = { {text="1/1 Prairie Wolf Heart", finished=true, type="item"}, {text="Bristleback Quilboar slain: 3/8", finished=false, type="monster", numFulfilled=3, numRequired=8} } },
@@ -107,6 +108,16 @@ QuestSiftProbeDB = {}
 GetQuestLogSpecialItemInfo = function(i) if i == 2 then return "|cff0070dd|Hitem:5555::::::::|h[Magic Stone]|h|r", "icon", 1, false end end
 GetItemCount = function() return 3 end
 C_Container = { GetItemCooldown = function() return 0, 0, 1 end }
+-- bags: slot 1 = the quest's usable item, 2 = a quest item no quest needs, 3 = an objective item,
+-- 4 = an item that starts a quest, 5 = an ordinary item
+bagItems = { { 5555, "Magic Stone" }, { 7777, "Old Letter" }, { 8888, "Broken Tools" }, { 9999, "Torn Map" }, { 1111, "Linen Cloth" } }
+C_Container.GetContainerItemInfo = function(bag, slot) local it = bag == 0 and bagItems[slot]
+    if it then return { itemID = it[1], iconFileID = it[1] + 100000, hyperlink = "|Hitem:" .. it[1] .. "|h[" .. it[2] .. "]|h" } end end
+C_Container.GetContainerItemQuestInfo = function(bag, slot)
+    if bag == 0 and slot == 4 then return { isQuestItem = true, questID = 77, isActive = false } end
+    if bag == 0 and slot == 3 then return { isQuestItem = true, questID = 1, isActive = true } end
+    return { isQuestItem = (bag == 0 and slot == 2) } end
+C_Item = { GetItemInfoInstant = function(id) return id, "", "", "", 0, (id == 7777 or id == 9999) and 12 or 7, 0 end }
 _G.mockFocus = 0
 C_SuperTrack = { GetSuperTrackedQuestID = function() return _G.mockFocus end,
                  SetSuperTrackedQuestID = function(id) _G.mockFocus = id end }
@@ -738,6 +749,71 @@ function(env)
     NA.QuestInfoWindow.Hide(); NA.db.listBackground = false; NA.ListLayout.ApplyLook(); NA.Options.frame:Hide()
     out[#out+1] = "look presets (want QuestSift=1.00 GearQuest=0.90 Midnight=0.81 Forest=0.85 Game=1.00 back=1.00/QuestSift): "
         .. table.concat(golds, " ") .. " new errors=" .. (#NA.errors - te)
+    do -- bag marks (Items/BagQuestItems.lua): squares of an unknown bag add-on (bag in the parent, slot in GetID)
+        -- plus an action-bar-like button with the same picture but no bag (must not be marked)
+        local bagWin = CreateFrame("Frame"); bagWin.GetID = function() return 0 end
+        local btns, all = {}, {}
+        local function square(j, parent)
+            local b = CreateFrame("Button")
+            b.GetObjectType = function() return "Button" end
+            b.IsVisible = function() return true end
+            b.IsForbidden = function() return false end
+            b.GetID = function() return j end
+            b.GetParent = function() return parent end
+            local pic = bagItems[j] and bagItems[j][1] + 100000
+            b.icon = { GetTexture = function() return pic end }
+            b.CreateTexture = function(self) local t = CreateFrame("Texture"); t.SetTexture = function(tt, x) tt._tex = x:match("(%a+)$") end; if rawget(self, "_n") == 1 then rawset(self, "_mark", t) end; rawset(self, "_n", (rawget(self, "_n") or 0) + 1); return t end
+            all[#all + 1] = b
+            return b
+        end
+        for j = 1, 5 do btns[j] = square(j, bagWin) end
+        local other = square(2, CreateFrame("Frame")) -- parent has no bag number
+        rawset(other:GetParent(), "GetID", function() return 99 end)
+        EnumerateFrames = function(f)
+            if f == nil then return all[1] end
+            for i, x in ipairs(all) do if x == f then return all[i + 1] end end
+        end
+        local function marks()
+            local r = {}
+            for j = 1, 5 do local m = rawget(btns[j], "_mark"); r[j] = (m and m:IsShown()) and (m._tex or "x") or "-" end
+            local m = rawget(other, "_mark"); r[6] = (m and m:IsShown()) and "BAD" or "-"
+            return table.concat(r, ",")
+        end
+        NA.BagQuestItems.Refresh()
+        local on = marks()
+        NA.BagQuestItems.Refresh(); NA.BagQuestItems.Refresh()
+        local lines = {}
+        local tip = { GetItem = function() return "Broken Tools", "|Hitem:8888|h[Broken Tools]|h" end,
+                      AddLine = function(_, x) lines[#lines + 1] = x end }
+        if GameTooltip._hook then GameTooltip._hook(tip) end
+        out[#out+1] = "bag tooltip after 3 refreshes (want one quest name): " .. table.concat(lines, " || ")
+        NA.db.bagMarks = false; NA.BagQuestItems.Refresh(); local off = marks(); NA.db.bagMarks = nil
+        out[#out+1] = "bag marks (want Tick,Question,Tick,-,-,- / off -,-,-,-,-,-): " .. on .. " / " .. off
+        EnumerateFrames = nil
+        NA.Options.Open(); NA.Options.SelectPage("bags"); NA.Options.frame:Hide()
+    end
+    -- "ready to turn in" mode (the "?"): only done quests, filters off and back as they were after
+    do
+        local F, TI = NA.Filters, NA.TurnInMode
+        local function fstate() local t = {} for _, f in ipairs(F.list) do t[#t+1] = f.id .. "=" .. tostring(F.IsEnabled(f)) end return table.concat(t, ",") end
+        local before = fstate()
+        TI.Toggle(); NA.Tracker.Refresh()
+        local shown, allDone = 0, true
+        for _, b in ipairs(NA.Tracker.section.blocks) do if b.frame:IsShown() then shown = shown + 1; if not b.quest.isComplete then allDone = false end end end
+        local anyOn = false
+        for _, f in ipairs(F.list) do if F.IsEnabled(f) then anyOn = true end end
+        TI.Toggle(); NA.Tracker.Refresh()
+        local back = fstate() == before
+        TI.Toggle(); local zf; for _, f in ipairs(F.list) do if f.id == "dungeon" then zf = f end end
+        local wasOn = before:find("dungeon=true") ~= nil
+        F.Toggle(zf); local ended = not TI.IsOn(); local flipped = F.IsEnabled(zf) ~= wasOn; F.Toggle(zf)
+        NA.Tracker.Refresh()
+        out[#out+1] = "turn-in mode (want shown>0 onlyDone=true filtersOff=true back=true / click ends=true flips=true same=true): shown>0=" .. tostring(shown > 0)
+            .. " onlyDone=" .. tostring(allDone) .. " filtersOff=" .. tostring(not anyOn) .. " back=" .. tostring(back)
+            .. " / click ends=" .. tostring(ended) .. " flips=" .. tostring(flipped) .. " same=" .. tostring(fstate() == before)
+    end
+    NA.Tracker.Refresh()
+    out[#out+1] = "counts line (want Active: 3   Shown: n): " .. tostring(NA.Tracker.section.counts and NA.Tracker.section.counts._text)
     out[#out+1] = "errors=" .. tostring(#NA.errors)
     for _, e in ipairs(NA.errors) do out[#out+1] = e end
     -- click paths

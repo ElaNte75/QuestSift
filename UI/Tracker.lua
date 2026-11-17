@@ -45,7 +45,17 @@ function Tracker.Refresh()
     Tracker.totalCount = #all
     NA.SafeCall(NA.CompleteSound.Check, all)
     local f = Tracker.frame
-    local visible = NA.Filters.Apply(all)
+    -- "ready to turn in" mode (the "?" on the title): only those quests, no filters (Quests/TurnInMode.lua)
+    local TI = NA.TurnInMode
+    local turnIn = TI and TI.IsOn()
+    local pool = turnIn and TI.Filter(all) or all -- what focus / class quests may add to the list
+    local visible
+    if turnIn then
+        visible = pool
+        NA.Filters.narrowed = false
+    else
+        visible = NA.Filters.Apply(all)
+    end
     -- (inside a dungeon / battleground the list shows, even empty: Data/DungeonFilter.lua)
     if #all == 0 and not NA.Filters.narrowed then
         f:Hide()
@@ -54,15 +64,22 @@ function Tracker.Refresh()
     f:Show()
 
     visible = NA.DistanceSort.Apply(visible)
-    NA.SafeCall(NA.AutoFocus.Update, all) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
+    -- "Most XP": only the 5 quests with the most XP, ties nearest first (Data/XPFilter.lua)
+    if not NA.Filters.narrowed and not turnIn and NA.XPFilter then
+        local okXP, top = NA.SafeCall(NA.XPFilter.Apply, visible)
+        if okXP and top then visible = top end
+    end
+    NA.SafeCall(NA.AutoFocus.Update, pool) -- closest quest of this zone gets the focus (Quests/AutoFocus.lua)
     -- a quest you focused yourself: always shown, on top (Quests/FocusFirst.lua)
     -- (not inside a dungeon that shows only its own quests: then nothing else joins the list)
-    if not NA.Filters.narrowed then
-        local okFF, ordered = NA.SafeCall(NA.FocusFirst.Apply, visible, all)
+    -- (not with "Most XP" on either: that list is exactly the top 5, user decision 2026-11-14)
+    local xpOn = NA.XPFilter and NA.XPFilter.IsOn()
+    if not NA.Filters.narrowed and not xpOn then
+        local okFF, ordered = NA.SafeCall(NA.FocusFirst.Apply, visible, pool)
         if okFF and ordered then visible = ordered end
     end
     -- class quests: always shown, above everything (Quests/ClassQuests.lua)
-    local okCQ, withClass = NA.SafeCall(NA.ClassQuests.Apply, visible, all)
+    local okCQ, withClass = NA.SafeCall(NA.ClassQuests.Apply, visible, pool)
     if okCQ and withClass then visible = withClass end
     Tracker.questCount = #visible
     -- after a flight / leaving a city the list opens once it has something to show (Quests/Quiet.lua)
@@ -85,7 +102,10 @@ function Tracker.Refresh()
         f:SetHeight(HEADER_H)
     else
         Tracker.scroll:Show()
-        local h = Tracker.section:Refresh(visible, NA.Filters.narrowed and "No quests here" or "No quests in this zone", w)
+        -- how many quests you have in the log and how many the filters let through
+        local okN, inLog = NA.SafeCall(NA.QuestSource.CountInLog)
+        local counts = "Active: " .. tostring(okN and inLog or #all) .. "   Shown: " .. #visible
+        local h = Tracker.section:Refresh(visible, turnIn and "No quests ready to turn in" or (NA.Filters.narrowed and "No quests here" or "No quests in this zone"), w, counts)
         local viewH = math.min(h, math.max(L.MaxHeight() - HEADER_H - 6, 60))
         local fullW = w + L.PAD_LEFT + L.PAD_RIGHT
         Tracker.content:SetSize(fullW, h)
@@ -121,7 +141,7 @@ NA.OnInit(function()
         expand = "UI-QuestTrackerButton-Expand-All",
         highlight = "UI-QuestTrackerButton-Red-Highlight",
         iconW = 18, iconH = 19, iconX = -1,
-        reserve = 52 + 4 * 20, -- gear + collapse, and the 4 quick buttons (UI/HeaderToggles.lua)
+        reserve = 52 + 6 * 20, -- gear + collapse, and the 6 quick buttons (UI/HeaderToggles.lua)
     })
     header:SetPoint("TOPLEFT", 0, 0)
     header:SetScript("OnClick", function()
